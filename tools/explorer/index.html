@@ -361,7 +361,7 @@ function refreshBalance() {
     const status = flags.length ? flags.join(", ") : "Unspent";
     html += `<tr>
       <td><code>${escapeHtml(v.outpoint.txid)}:${v.outpoint.vout}</code></td>
-      <td>${formatBigInt(amt)}</td>
+      <td>${formatBigInt(amt)} sats</td>
       <td class="muted">${created}</td>
       <td>${escapeHtml(status)}</td>
     </tr>`;
@@ -389,7 +389,7 @@ function displayTxInfo(txid, vtxos) {
     const status = flags.length ? flags.join(", ") : "Unspent";
     html += `<tr>
       <td><code>${escapeHtml(v.outpoint.txid)}:${v.outpoint.vout}</code></td>
-      <td>${formatBigInt(amt)}</td>
+      <td>${formatBigInt(amt)} sats</td>
       <td class="muted">${created}</td>
       <td>${escapeHtml(status)}</td>
     </tr>`;
