@@ -360,7 +360,12 @@ function refreshBalance() {
     if (v.isPreconfirmed) flags.push("Preconfirmed");
     const status = flags.length ? flags.join(", ") : "Unspent";
     html += `<tr>
-      <td><code>${escapeHtml(v.outpoint.txid)}:${v.outpoint.vout}</code></td>
+      <td>
+  <a href="https://bitcoin-beta.arkade.sh/v1/vtxos?outpoints=${encodeURIComponent(v.outpoint.txid + ':' + v.outpoint.vout)}" target="_blank" rel="noopener noreferrer">
+    <code>${escapeHtml(v.outpoint.txid)}:${v.outpoint.vout}</code>
+  </a>
+</td>
+
       <td>${formatBigInt(amt)} sats</td>
       <td class="muted">${created}</td>
       <td>${escapeHtml(status)}</td>
