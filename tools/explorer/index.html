@@ -217,7 +217,17 @@ function escapeHtml(text) {
 
 function toUTC(s) {
   try {
-    return new Date(s).toISOString().replace('T',' ').replace('Z',' UTC');
+    let date;
+    if (typeof s === "number" || /^\d+$/.test(s)) {
+      // Convert to number
+      let ts = Number(s);
+      // Detect if timestamp is in seconds (10-digit) or milliseconds (13-digit)
+      if (ts < 1e12) ts *= 1000;  // convert seconds to ms
+      date = new Date(ts);
+    } else {
+      date = new Date(s);
+    }
+    return date.toISOString().replace('T',' ').replace('Z',' UTC');
   } catch {
     return s;
   }
