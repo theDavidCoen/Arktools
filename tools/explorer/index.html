@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Ark Explorer — Correct Balance Calculation</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+
+    body { 
+      font-family: 'Inter', Arial, sans-serif; 
+      background:#f6f7fb; 
+      color:#111; 
+      margin:20px; 
+    }
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    header img {
+      height: 32px;
+      width: auto;
+      user-select: none;
+    }
+    header h1 {
+      font-weight: 600;
+      font-size: 28px;
+      margin: 0;
+      color: #0F172A; /* dark slate */
+    }
+
+    #search { 
+      width: 60%; 
+      padding: 8px; 
+      font-size: 14px; 
+      border: 1px solid #d1d5db; 
+      border-radius: 6px;
+      outline-offset: 2px;
+      outline-color: #2563eb; /* blue focus */
+      transition: outline-color 0.2s ease;
+    }
+    #search:focus {
+      outline-color: #3b82f6;
+    }
+
+    button { 
+      padding: 8px 12px; 
+      margin-left: 6px; 
+      background: #2563eb; 
+      border: none;
+      color: white;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+    button:hover {
+      background: #1e40af;
+    }
+    label { 
+      margin-left: 8px; 
+      font-size: 13px; 
+      user-select: none; 
+      cursor: pointer; 
+      color: #374151; /* gray-700 */
+    }
+    .result { 
+      background: #fff; 
+      padding: 16px; 
+      margin-top: 18px; 
+      border-radius: 10px; 
+      box-shadow: 0 6px 18px rgba(20,20,40,0.04); 
+    }
+    table { 
+      width: 100%; 
+      border-collapse: collapse; 
+      margin-top: 12px; 
+    }
+    th, td { 
+      text-align: left; 
+      padding: 8px 6px; 
+      border-bottom: 1px solid #eee; 
+      font-size: 13px; 
+    }
+    th { 
+      background: #fbfbfd; 
+      font-weight: 600; 
+    }
+    .muted { 
+      color: #666; 
+      font-size: 13px; 
+    }
+    .loading { 
+      color: #888; 
+    }
+    small.note { 
+      color: #666; 
+      display: block; 
+      margin-top: 6px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="https://mintlify.s3.us-west-1.amazonaws.com/arkade/logo/light.svg" alt="Arkade Logo" />
+    <h1>Explorer</h1>
+  </header>
+ 
+  <input id="search" placeholder="Enter txid (64 hex), script (5120...), or Ark address (ark1...)" />
+  <button onclick="explore()">Search</button>
+  <label><input type="checkbox" id="spendableOnly" checked onchange="refreshBalance()"> Only spendable</label>
+  <div class="result" id="output" style="display:none"></div>
+
+<script>
+const NODE_BASE = "https://bitcoin-beta.arkade.sh";
+const VTXOS_ENDPOINT = NODE_BASE + "/v1/vtxos";
+const SERVER_PUBKEY = "034ae8492184a8ca64cf5299a5eefcb59d1c8e41668e667dfd4d042e5876d34745";
+
+const CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+function fromWords(words) {
+  let acc = 0, bits = 0;
+  const result = [];
+  for (let value of words) {
+    acc = (acc << 5) | value;
+    bits += 5;
+    while (bits >= 8) {
+      bits -= 8;
+      result.push((acc >> bits) & 0xff);
+    }
+  }
+  return new Uint8Array(result);
+}
+function toWords(bytes) {
+  let acc = 0, bits = 0, words = [];
+  for (let byte of bytes) {
+    acc = (acc << 8) | byte;
+    bits += 8;
+    while (bits >= 5) {
+      bits -= 5;
+      words.push((acc >> bits) & 31);
+    }
+  }
+  if (bits > 0) words.push((acc << (5 - bits)) & 31);
+  return words;
+}
+function toHex(bytes) { return Array.from(bytes).map(b => b.toString(16).padStart(2,'0')).join(''); }
+function bech32mDecode(bech) {
+  const sep = bech.lastIndexOf('1');
+  if (sep === -1) throw new Error("Invalid bech32m: missing separator");
+  const hrp = bech.substring(0, sep);
+  const data = bech.substring(sep+1).split('').map(c => {
+    const v = CHARSET.indexOf(c);
+    if (v === -1) throw new Error("Invalid bech32m char");
+    return v;
+  });
+  return { hrp, data };
+}
+function bech32mEncode(hrp, dataBytes) {
+  function polymod(values) {
+    const GEN = [0x3b6a57b2,0x26508e6d,0x1ea119fa,0x3d4233dd,0x2a1462b3];
+    let chk = 1;
+    for (let v of values) {
+      let top = chk >> 25;
+      chk = ((chk & 0x1ffffff) << 5) ^ v;
+      for (let i = 0; i < 5; i++) if ((top >> i) & 1) chk ^= GEN[i];
+    }
+    return chk ^ 0x2bc830a3;
+  }
+  function expandHrp(hrp) {
+    const ret = [];
+    for (let i=0;i<hrp.length;i++) ret.push(hrp.charCodeAt(i) >> 5);
+    ret.push(0);
+    for (let i=0;i<hrp.length;i++) ret.push(hrp.charCodeAt(i) & 31);
+    return ret;
+  }
+  const values = toWords(dataBytes);
+  const checksum = polymod([...expandHrp(hrp), ...values, 0,0,0,0,0,0]);
+  const chk = [];
+  for (let i=0;i<6;i++) chk.push((checksum >> (5*(5-i))) & 31);
+  const combined = [...values, ...chk];
+  return hrp + '1' + combined.map(v=>CHARSET[v]).join('');
+}
+function arkToScriptHex(addr) {
+  try {
+    const { data } = bech32mDecode(addr);
+    const full = fromWords(data);
+    const taprootKey = full.slice(33);
+    return "5120" + toHex(taprootKey);
+  } catch (e) { return null; }
+}
+function scriptToArk(scriptHex) {
+  try {
+    if (!scriptHex.startsWith("5120")) return null;
+    const taprootHex = scriptHex.slice(4);
+    const taprootKey = Uint8Array.from(taprootHex.match(/.{2}/g).map(b=>parseInt(b,16)));
+    const serverKey = Uint8Array.from(SERVER_PUBKEY.slice(2).match(/.{2}/g).map(b=>parseInt(b,16)));
+    const payload = new Uint8Array([0, ...serverKey, ...taprootKey]);
+    return bech32mEncode("ark", payload);
+  } catch (e) { return null; }
+}
+
+function isTxid(s) { return /^[0-9a-f]{64}$/i.test(s); }
+function isScriptHex(s) { return /^5120[0-9a-f]{64}$/i.test(s); }
+function isArkAddr(s) { return /^ark1[0-9a-z]{10,}$/i.test(s); }
+
+function formatBigInt(bn) {
+  const s = (typeof bn === "bigint") ? bn.toString() : String(bn);
+  return s.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+function escapeHtml(text) {
+  return text.replace(/[&<>"']/g, function(m) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+  });
+}
+
+function toUTC(s) {
+  try {
+    return new Date(s).toISOString().replace('T',' ').replace('Z',' UTC');
+  } catch {
+    return s;
+  }
+}
+
+let cachedVtxos = null;
+let currentScriptHex = null;
+
+async function explore() {
+  const q = document.getElementById("search").value.trim();
+  const out = document.getElementById("output");
+  out.style.display = "block";
+  out.innerHTML = `<p class="loading">Querying node…</p>`;
+
+  try {
+    if (isArkAddr(q)) {
+      const script = arkToScriptHex(q);
+      if (!script) throw new Error("Could not convert Ark address to script.");
+      currentScriptHex = script;
+      await fetchScriptData(script);
+    } else if (isScriptHex(q)) {
+      currentScriptHex = q;
+      await fetchScriptData(q);
+    } else if (isTxid(q)) {
+      currentScriptHex = null;
+      await fetchTxData(q);
+    } else {
+      out.innerHTML = `<p>Input not recognized as txid, script (5120...), or ark address. Got: <code>${escapeHtml(q)}</code></p>`;
+    }
+  } catch (e) {
+    out.innerHTML = `<p style="color:#b00">Error: ${escapeHtml(e.message || e)}</p>`;
+  }
+}
+
+async function fetchScriptData(scriptHex) {
+  const out = document.getElementById("output");
+  const params = new URLSearchParams();
+  params.set("scripts", scriptHex);
+  // Fetch ALL vtxos (no spendable_only filter)
+  const url = VTXOS_ENDPOINT + "?" + params.toString();
+
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Node returned " + res.status);
+  const json = await res.json();
+  cachedVtxos = json.vtxos || [];
+  console.log("Fetched vtxos:", cachedVtxos);
+  displayScriptInfo(scriptHex, cachedVtxos);
+}
+
+async function fetchTxData(txid) {
+  const out = document.getElementById("output");
+  out.innerHTML = `<p class="loading">Probing vouts for tx ${txid}…</p>`;
+  let vout = 0, vtxos = [];
+  while (true) {
+    const url = VTXOS_ENDPOINT + "?outpoints=" + encodeURIComponent(txid + ":" + vout);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Node returned " + res.status);
+    const json = await res.json();
+    if (!json.vtxos || json.vtxos.length === 0) break;
+    vtxos.push(...json.vtxos);
+    vout++;
+    if (vout > 1000) break;
+  }
+  if (vtxos.length === 0) {
+    out.innerHTML = `<p>No vtxos found for tx ${txid} (tried vouts 0..${vout-1}).</p>`;
+    return;
+  }
+  cachedVtxos = vtxos;
+  displayTxInfo(txid, vtxos);
+}
+
+function displayScriptInfo(scriptHex, vtxos) {
+  const out = document.getElementById("output");
+  refreshBalance();
+}
+
+function refreshBalance() {
+  if (!cachedVtxos || !currentScriptHex) return;
+
+  const out = document.getElementById("output");
+  const spendableOnly = document.getElementById("spendableOnly").checked;
+
+  let sum = 0n;
+
+  for (const v of cachedVtxos) {
+    // Use camelCase property names exactly as in API:
+    const pre = v.isPreconfirmed === true;
+    const swept = v.isSwept === true;
+    const unrolled = v.isUnrolled === true;
+    const spent = v.isSpent === true;
+
+    // Debug each vtxo flags + amount
+    console.log("vtxo flags:", {pre, swept, unrolled, spent}, "amount:", v.amount);
+
+    if (pre && !unrolled) {
+      if (spendableOnly) {
+        if (!swept && !spent) {
+          sum += BigInt(v.amount || "0");
+        }
+      } else {
+        if ((!swept && !spent) || (swept && spent)) {
+          sum += BigInt(v.amount || "0");
+        }
+      }
+    }
+  }
+
+  const address = scriptToArk(currentScriptHex) || "(cannot reconstruct ark address)";
+
+  let html = `<h2>Script Info</h2>
+    <p><b>Ark Address:</b> ${escapeHtml(address)}</p>
+    <p><b>ScriptPubKey:</b> <code>${escapeHtml(currentScriptHex)}</code></p>
+    <p class="muted">
+      Balance sums vtxos where <code>isPreconfirmed:true</code>, <code>isUnrolled:false</code> and:<br/>
+      <ul>
+        <li><b>Only spendable checked:</b> <code>isSwept:false & isSpent:false</code></li>
+        <li><b>Unchecked:</b> both <code>isSwept:false & isSpent:false</code> and <code>isSwept:true & isSpent:true</code></li>
+      </ul>
+    </p>
+    <p><b>Total Balance:</b> ${formatBigInt(sum)} sats</p>
+    <table><thead><tr><th>Outpoint</th><th>Amount</th><th>Created (UTC)</th><th>Status</th></tr></thead><tbody>`;
+
+  for (const v of cachedVtxos) {
+    const amt = BigInt(v.amount || "0");
+    const created = v.createdAt ? toUTC(v.createdAt) : "-";
+    const flags = [];
+    if (v.isSpent) flags.push("Spent");
+    if (v.isSwept) flags.push("Swept");
+    if (v.isUnrolled) flags.push("Unrolled");
+    if (v.isPreconfirmed) flags.push("Preconfirmed");
+    const status = flags.length ? flags.join(", ") : "Unspent";
+    html += `<tr>
+      <td><code>${escapeHtml(v.outpoint.txid)}:${v.outpoint.vout}</code></td>
+      <td>${formatBigInt(amt)}</td>
+      <td class="muted">${created}</td>
+      <td>${escapeHtml(status)}</td>
+    </tr>`;
+  }
+
+  html += `</tbody></table>`;
+
+  out.innerHTML = html;
+}
+
+function displayTxInfo(txid, vtxos) {
+  const out = document.getElementById("output");
+  let html = `<h2>Transaction Output Info</h2>
+    <p><b>TxID:</b> ${escapeHtml(txid)}</p>
+    <table><thead><tr><th>Outpoint</th><th>Amount</th><th>Created (UTC)</th><th>Status</th></tr></thead><tbody>`;
+
+  for (const v of vtxos) {
+    const amt = BigInt(v.amount || "0");
+    const created = v.createdAt ? toUTC(v.createdAt) : "-";
+    const flags = [];
+    if (v.isSpent) flags.push("Spent");
+    if (v.isSwept) flags.push("Swept");
+    if (v.isUnrolled) flags.push("Unrolled");
+    if (v.isPreconfirmed) flags.push("Preconfirmed");
+    const status = flags.length ? flags.join(", ") : "Unspent";
+    html += `<tr>
+      <td><code>${escapeHtml(v.outpoint.txid)}:${v.outpoint.vout}</code></td>
+      <td>${formatBigInt(amt)}</td>
+      <td class="muted">${created}</td>
+      <td>${escapeHtml(status)}</td>
+    </tr>`;
+  }
+
+  html += `</tbody></table>`;
+  out.innerHTML = html;
+}
+
+</script>
+</body>
+</html>
+
