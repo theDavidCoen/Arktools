@@ -1,6 +1,6 @@
 
 # Arkade Explorer
-**Proto-explorer for Arkade / Fulmine.**
+**Proto-explorer for Arkade / Fulmine. Currently working with demo wallet riga.arkade.money and node public key 034ae8492184a8ca64cf5299a5eefcb59d1c8e41668e667dfd4d042e5876d34745. This will change.**
 <br>Build with LLM.
 <br>Working but not yet reviewed.
 <br>An example at https://resources.davidcoen.it/arkexplorer/
