@@ -5,100 +5,24 @@
   <title>Ark Explorer — Proto version</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
-
-    body { 
-      font-family: 'Inter', Arial, sans-serif; 
-      background:#f6f7fb; 
-      color:#111; 
-      margin:20px; 
-    }
-    header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 24px;
-    }
-    header img {
-      height: 32px;
-      width: auto;
-      user-select: none;
-    }
-    header h1 {
-      font-weight: 600;
-      font-size: 28px;
-      margin: 0;
-      color: #0F172A; /* dark slate */
-    }
-
-    #search { 
-      width: 60%; 
-      padding: 8px; 
-      font-size: 14px; 
-      border: 1px solid #d1d5db; 
-      border-radius: 6px;
-      outline-offset: 2px;
-      outline-color: #2563eb; /* blue focus */
-      transition: outline-color 0.2s ease;
-    }
-    #search:focus {
-      outline-color: #3b82f6;
-    }
-
-    button { 
-      padding: 8px 12px; 
-      margin-left: 6px; 
-      background: #2563eb; 
-      border: none;
-      color: white;
-      font-weight: 600;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background-color 0.2s ease;
-    }
-    button:hover {
-      background: #1e40af;
-    }
-    label { 
-      margin-left: 8px; 
-      font-size: 13px; 
-      user-select: none; 
-      cursor: pointer; 
-      color: #374151; /* gray-700 */
-    }
-    .result { 
-      background: #fff; 
-      padding: 16px; 
-      margin-top: 18px; 
-      border-radius: 10px; 
-      box-shadow: 0 6px 18px rgba(20,20,40,0.04); 
-    }
-    table { 
-      width: 100%; 
-      border-collapse: collapse; 
-      margin-top: 12px; 
-    }
-    th, td { 
-      text-align: left; 
-      padding: 8px 6px; 
-      border-bottom: 1px solid #eee; 
-      font-size: 13px; 
-    }
-    th { 
-      background: #fbfbfd; 
-      font-weight: 600; 
-    }
-    .muted { 
-      color: #666; 
-      font-size: 13px; 
-    }
-    .loading { 
-      color: #888; 
-    }
-    small.note { 
-      color: #666; 
-      display: block; 
-      margin-top: 6px;
-    }
+    body { font-family: 'Inter', Arial, sans-serif; background:#f6f7fb; color:#111; margin:20px; }
+    header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+    header img { height: 32px; width: auto; user-select: none; }
+    header h1 { font-weight: 600; font-size: 28px; margin: 0; color: #0F172A; }
+    #search { width: 60%; padding: 8px; font-size: 14px; border: 1px solid #d1d5db; border-radius: 6px; outline-offset: 2px; outline-color: #2563eb; transition: outline-color 0.2s ease; }
+    #search:focus { outline-color: #3b82f6; }
+    button { padding: 8px 12px; margin-left: 6px; background: #2563eb; border: none; color: white; font-weight: 600; border-radius: 6px; cursor: pointer; transition: background-color 0.2s ease; }
+    button:hover { background: #1e40af; }
+    label { margin-left: 8px; font-size: 13px; user-select: none; cursor: pointer; color: #374151; }
+    .result { background: #fff; padding: 16px; margin-top: 18px; border-radius: 10px; box-shadow: 0 6px 18px rgba(20,20,40,0.04); }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #eee; font-size: 13px; }
+    th { background: #fbfbfd; font-weight: 600; }
+    .muted { color: #666; font-size: 13px; }
+    .loading { color: #888; }
+    small.note { color: #666; display: block; margin-top: 6px; }
+    .chevron { cursor: pointer; }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
@@ -106,10 +30,11 @@
     <img src="https://mintlify.s3.us-west-1.amazonaws.com/arkade/logo/light.svg" alt="Arkade Logo" />
     <h1>Explorer</h1>
   </header>
- 
+
   <input id="search" placeholder="Enter txid (64 hex), script (5120...), or Ark address (ark1...)" />
   <button onclick="explore()">Search</button>
   <label><input type="checkbox" id="spendableOnly" checked onchange="refreshBalance()"> Only spendable</label>
+  <label><input type="checkbox" id="groupByCommitment" onchange="refreshBalance()"> Group by commitment transaction</label>
   <div class="result" id="output" style="display:none"></div>
 
 <script>
@@ -219,10 +144,8 @@ function toUTC(s) {
   try {
     let date;
     if (typeof s === "number" || /^\d+$/.test(s)) {
-      // Convert to number
       let ts = Number(s);
-      // Detect if timestamp is in seconds (10-digit) or milliseconds (13-digit)
-      if (ts < 1e12) ts *= 1000;  // convert seconds to ms
+      if (ts < 1e12) ts *= 1000;
       date = new Date(ts);
     } else {
       date = new Date(s);
@@ -232,7 +155,6 @@ function toUTC(s) {
     return s;
   }
 }
-
 
 let cachedVtxos = null;
 let currentScriptHex = null;
@@ -267,14 +189,12 @@ async function fetchScriptData(scriptHex) {
   const out = document.getElementById("output");
   const params = new URLSearchParams();
   params.set("scripts", scriptHex);
-  // Fetch ALL vtxos (no spendable_only filter)
   const url = VTXOS_ENDPOINT + "?" + params.toString();
 
   const res = await fetch(url);
   if (!res.ok) throw new Error("Node returned " + res.status);
   const json = await res.json();
   cachedVtxos = json.vtxos || [];
-  console.log("Fetched vtxos:", cachedVtxos);
   displayScriptInfo(scriptHex, cachedVtxos);
 }
 
@@ -310,18 +230,15 @@ function refreshBalance() {
 
   const out = document.getElementById("output");
   const spendableOnly = document.getElementById("spendableOnly").checked;
+  const groupByCommitment = document.getElementById("groupByCommitment").checked;
 
-  let sum = 0n;
+  let sum = 0n, grouped = {};
 
   for (const v of cachedVtxos) {
-    // Use camelCase property names exactly as in API:
     const pre = v.isPreconfirmed === true;
     const swept = v.isSwept === true;
     const unrolled = v.isUnrolled === true;
     const spent = v.isSpent === true;
-
-    // Debug each vtxo flags + amount
-    console.log("vtxo flags:", {pre, swept, unrolled, spent}, "amount:", v.amount);
 
     if (pre && !unrolled) {
       if (spendableOnly) {
@@ -334,90 +251,165 @@ function refreshBalance() {
         }
       }
     }
+
+    if (groupByCommitment && v.commitmentTxids && v.commitmentTxids.length > 0) {
+      const commitment = v.commitmentTxids[0];
+      grouped[commitment] = grouped[commitment] || [];
+      grouped[commitment].push(v);
+    }
   }
 
   const address = scriptToArk(currentScriptHex) || "(cannot reconstruct ark address)";
 
   let html = `<h2>Script Info</h2>
-    <p><b>Ark Address:</b> ${escapeHtml(address)}</p>
-    <p><b>ScriptPubKey:</b> <code>${escapeHtml(currentScriptHex)}</code></p>
-    <p class="muted">
-      Balance sums vtxos where <code>isPreconfirmed:true</code>, <code>isUnrolled:false</code> and:<br/>
-      <ul>
-        <li><b>Only spendable checked:</b> <code>isSwept:false & isSpent:false</code></li>
-        <li><b>Unchecked:</b> both <code>isSwept:false & isSpent:false</code> and <code>isSwept:true & isSpent:true</code></li>
-      </ul>
-    </p>
-    <p><b>Total Balance:</b> ${formatBigInt(sum)} sats</p>
-    <table><thead><tr><th>Outpoint</th><th>Amount</th><th>Created (UTC)</th><th>Status</th><th>Commitment TX</th></tr></thead><tbody>`;
+  <p><b>Ark Address:</b> ${escapeHtml(address)}</p>
+  <p><b>ScriptPubKey:</b> <code>${escapeHtml(currentScriptHex)}</code></p>
+  <p class="muted">
+    Balance sums vtxos where <code>isPreconfirmed:true</code>, <code>isUnrolled:false</code> and:<br/>
+    <ul>
+      <li><b>Only spendable checked:</b> <code>isSwept:false & isSpent:false</code></li>
+      <li><b>Unchecked:</b> both <code>isSwept:false & isSpent:false</code> and <code>isSwept:true & isSpent:true</code></li>
+    </ul>
+  </p>
+  <p><b>Total Balance:</b> ${formatBigInt(sum)} sats</p>`;
 
-  for (const v of cachedVtxos) {
-    const amt = BigInt(v.amount || "0");
-    const created = v.createdAt ? toUTC(v.createdAt) : "-";
-    const flags = [];
-    if (v.isSpent) flags.push("Spent");
-    if (v.isSwept) flags.push("Swept");
-    if (v.isUnrolled) flags.push("Unrolled");
-    if (v.isPreconfirmed) flags.push("Preconfirmed");
-    const status = flags.length ? flags.join(", ") : "Unspent";
-    html += `<tr>
-      <td>
-  <a href="https://bitcoin-beta.arkade.sh/v1/vtxos?outpoints=${encodeURIComponent(v.outpoint.txid + ':' + v.outpoint.vout)}" target="_blank" rel="noopener noreferrer">
-    <code>${escapeHtml(v.outpoint.txid)}:${v.outpoint.vout}</code>
-  </a>
-</td>
+  if (groupByCommitment) {
+    for (let commitment in grouped) {
+      html += `<table>
+        <thead>
+          <tr>
+            <th colspan="4" class="chevron" onclick="toggleGroup('${commitment}')">
+              <span>▶</span> Onchain Commitment Transaction 
+              <a href="https://mempool.space/tx/${commitment}" target="_blank" rel="noopener noreferrer">${escapeHtml(commitment)}</a>
+            </th>
+          </tr>
+          <tr id="${commitment}-header" class="hidden"><th>Outpoint</th><th>Amount</th><th>Created (UTC)</th><th>Status</th></tr>
+        </thead>
+        <tbody id="${commitment}" class="hidden">`;
 
-      <td>${formatBigInt(amt)} sats</td>
-      <td class="muted">${created}</td>
-      <td>${escapeHtml(status)}</td>
-      <td>
-      ${v.commitmentTxids && v.commitmentTxids.length > 0 
-        ? `<a href="https://mempool.space/tx/${escapeHtml(v.commitmentTxids[0])}" target="_blank" rel="noopener noreferrer">${escapeHtml(v.commitmentTxids[0])}</a>` 
-        : "-"}
-    </td>
-    </tr>`;
+      grouped[commitment].forEach(v => {
+        const amt = BigInt(v.amount || "0");
+        const created = v.createdAt ? toUTC(v.createdAt) : "-";
+        const flags = [];
+        if (v.isSpent) flags.push("Spent");
+        if (v.isSwept) flags.push("Swept");
+        if (v.isUnrolled) flags.push("Unrolled");
+        if (v.isPreconfirmed) flags.push("Preconfirmed");
+        const status = flags.length ? flags.join(", ") : "Unspent";
+        html += `<tr>
+          <td><a href="https://bitcoin-beta.arkade.sh/v1/vtxos?outpoints=${encodeURIComponent(v.outpoint.txid + ':' + v.outpoint.vout)}" target="_blank" rel="noopener noreferrer"><code>${escapeHtml(v.outpoint.txid)}:${v.outpoint.vout}</code></a></td>
+          <td>${formatBigInt(amt)} sats</td>
+          <td class="muted">${created}</td>
+          <td>${escapeHtml(status)}</td>
+        </tr>`;
+      });
+      html += `</tbody></table>`;
+    }
+  } else {
+    html += `<table><thead><tr><th>Outpoint</th><th>Amount</th><th>Created (UTC)</th><th>Status</th><th>Commitment TX</th></tr></thead><tbody>`;
+    for (const v of cachedVtxos) {
+      const amt = BigInt(v.amount || "0");
+      const created = v.createdAt ? toUTC(v.createdAt) : "-";
+      const flags = [];
+      if (v.isSpent) flags.push("Spent");
+      if (v.isSwept) flags.push("Swept");
+      if (v.isUnrolled) flags.push("Unrolled");
+      if (v.isPreconfirmed) flags.push("Preconfirmed");
+      const status = flags.length ? flags.join(", ") : "Unspent";
+      html += `<tr>
+        <td><a href="https://bitcoin-beta.arkade.sh/v1/vtxos?outpoints=${encodeURIComponent(v.outpoint.txid + ':' + v.outpoint.vout)}" target="_blank" rel="noopener noreferrer"><code>${escapeHtml(v.outpoint.txid)}:${v.outpoint.vout}</code></a></td>
+        <td>${formatBigInt(amt)} sats</td>
+        <td class="muted">${created}</td>
+        <td>${escapeHtml(status)}</td>
+        <td>${v.commitmentTxids && v.commitmentTxids.length > 0 ? `<a href="https://mempool.space/tx/${escapeHtml(v.commitmentTxids[0])}" target="_blank" rel="noopener noreferrer">${escapeHtml(v.commitmentTxids[0])}</a>` : "-"}</td>
+      </tr>`;
+    }
+    html += `</tbody></table>`;
   }
-
-  html += `</tbody></table>`;
 
   out.innerHTML = html;
 }
 
 function displayTxInfo(txid, vtxos) {
   const out = document.getElementById("output");
+  const groupByCommitment = document.getElementById("groupByCommitment").checked;
   let html = `<h2>Transaction Output Info</h2>
-    <p><b>TxID:</b> ${escapeHtml(txid)}</p>
-    <table><thead><tr><th>Outpoint</th><th>Amount</th><th>Created (UTC)</th><th>Status</th><th>Commitment TX</th></tr></thead><tbody>`;
+    <p><b>TxID:</b> ${escapeHtml(txid)}</p>`;
 
-  for (const v of vtxos) {
-    const amt = BigInt(v.amount || "0");
-    const created = v.createdAt ? toUTC(v.createdAt) : "-";
-    const flags = [];
-    if (v.isSpent) flags.push("Spent");
-    if (v.isSwept) flags.push("Swept");
-    if (v.isUnrolled) flags.push("Unrolled");
-    if (v.isPreconfirmed) flags.push("Preconfirmed");
-    const status = flags.length ? flags.join(", ") : "Unspent";
-    html += `<tr>
-      <td>
-  <a href="https://bitcoin-beta.arkade.sh/v1/vtxos?outpoints=${encodeURIComponent(v.outpoint.txid + ':' + v.outpoint.vout)}" target="_blank" rel="noopener noreferrer">
-    <code>${escapeHtml(v.outpoint.txid)}:${v.outpoint.vout}</code>
-  </a>
-</td>
+  if (groupByCommitment) {
+    let grouped = {};
+    vtxos.forEach(v => {
+      if (v.commitmentTxids && v.commitmentTxids.length > 0) {
+        const commitment = v.commitmentTxids[0];
+        grouped[commitment] = grouped[commitment] || [];
+        grouped[commitment].push(v);
+      }
+    });
 
-      <td>${formatBigInt(amt)} sats</td>
-      <td class="muted">${created}</td>
-      <td>${escapeHtml(status)}</td>
-      <td>
-      ${v.commitmentTxids && v.commitmentTxids.length > 0 
-        ? `<a href="https://mempool.space/tx/${escapeHtml(v.commitmentTxids[0])}" target="_blank" rel="noopener noreferrer">${escapeHtml(v.commitmentTxids[0])}</a>` 
-        : "-"}
-    </td>
-    </tr>`;
+    for (let commitment in grouped) {
+      html += `<table>
+        <thead>
+          <tr>
+            <th colspan="4" class="chevron" onclick="toggleGroup('${commitment}')">
+              <span>▶</span> Onchain Commitment Transaction 
+              <a href="https://mempool.space/tx/${commitment}" target="_blank" rel="noopener noreferrer">${escapeHtml(commitment)}</a>
+            </th>
+          </tr>
+          <tr id="${commitment}-header" class="hidden"><th>Outpoint</th><th>Amount</th><th>Created (UTC)</th><th>Status</th></tr>
+        </thead>
+        <tbody id="${commitment}" class="hidden">`;
+
+      grouped[commitment].forEach(v => {
+        const amt = BigInt(v.amount || "0");
+        const created = v.createdAt ? toUTC(v.createdAt) : "-";
+        const flags = [];
+        if (v.isSpent) flags.push("Spent");
+        if (v.isSwept) flags.push("Swept");
+        if (v.isUnrolled) flags.push("Unrolled");
+        if (v.isPreconfirmed) flags.push("Preconfirmed");
+        const status = flags.length ? flags.join(", ") : "Unspent";
+        html += `<tr>
+          <td><a href="https://bitcoin-beta.arkade.sh/v1/vtxos?outpoints=${encodeURIComponent(v.outpoint.txid + ':' + v.outpoint.vout)}" target="_blank" rel="noopener noreferrer"><code>${escapeHtml(v.outpoint.txid)}:${v.outpoint.vout}</code></a></td>
+          <td>${formatBigInt(amt)} sats</td>
+          <td class="muted">${created}</td>
+          <td>${escapeHtml(status)}</td>
+        </tr>`;
+      });
+      html += `</tbody></table>`;
+    }
+  } else {
+    html += `<table><thead><tr><th>Outpoint</th><th>Amount</th><th>Created (UTC)</th><th>Status</th><th>Commitment TX</th></tr></thead><tbody>`;
+    for (const v of vtxos) {
+      const amt = BigInt(v.amount || "0");
+      const created = v.createdAt ? toUTC(v.createdAt) : "-";
+      const flags = [];
+      if (v.isSpent) flags.push("Spent");
+      if (v.isSwept) flags.push("Swept");
+      if (v.isUnrolled) flags.push("Unrolled");
+      if (v.isPreconfirmed) flags.push("Preconfirmed");
+      const status = flags.length ? flags.join(", ") : "Unspent";
+      html += `<tr>
+        <td><a href="https://bitcoin-beta.arkade.sh/v1/vtxos?outpoints=${encodeURIComponent(v.outpoint.txid + ':' + v.outpoint.vout)}" target="_blank" rel="noopener noreferrer"><code>${escapeHtml(v.outpoint.txid)}:${v.outpoint.vout}</code></a></td>
+        <td>${formatBigInt(amt)} sats</td>
+        <td class="muted">${created}</td>
+        <td>${escapeHtml(status)}</td>
+        <td>${v.commitmentTxids && v.commitmentTxids.length > 0 ? `<a href="https://mempool.space/tx/${escapeHtml(v.commitmentTxids[0])}" target="_blank" rel="noopener noreferrer">${escapeHtml(v.commitmentTxids[0])}</a>` : "-"}</td>
+      </tr>`;
+    }
+    html += `</tbody></table>`;
   }
 
-  html += `</tbody></table>`;
   out.innerHTML = html;
+}
+
+function toggleGroup(commitment) {
+  const rows = document.getElementById(commitment);
+  const header = document.getElementById(`${commitment}-header`);
+  const chevron = header.previousElementSibling.querySelector('span');
+  const isHidden = rows.classList.contains('hidden');
+  rows.classList.toggle('hidden', !isHidden);
+  header.classList.toggle('hidden', !isHidden);
+  chevron.textContent = isHidden ? '▼' : '▶';
 }
 
 </script>
