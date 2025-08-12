@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Ark Explorer — Correct Balance Calculation</title>
+  <title>Ark Explorer — Proto version</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
 
@@ -233,6 +233,7 @@ function toUTC(s) {
   }
 }
 
+
 let cachedVtxos = null;
 let currentScriptHex = null;
 
@@ -348,7 +349,7 @@ function refreshBalance() {
       </ul>
     </p>
     <p><b>Total Balance:</b> ${formatBigInt(sum)} sats</p>
-    <table><thead><tr><th>Outpoint</th><th>Amount</th><th>Created (UTC)</th><th>Status</th></tr></thead><tbody>`;
+    <table><thead><tr><th>Outpoint</th><th>Amount</th><th>Created (UTC)</th><th>Status</th><th>Commitment TX</th></tr></thead><tbody>`;
 
   for (const v of cachedVtxos) {
     const amt = BigInt(v.amount || "0");
@@ -369,6 +370,11 @@ function refreshBalance() {
       <td>${formatBigInt(amt)} sats</td>
       <td class="muted">${created}</td>
       <td>${escapeHtml(status)}</td>
+      <td>
+      ${v.commitmentTxids && v.commitmentTxids.length > 0 
+        ? `<a href="https://mempool.space/tx/${escapeHtml(v.commitmentTxids[0])}" target="_blank" rel="noopener noreferrer">${escapeHtml(v.commitmentTxids[0])}</a>` 
+        : "-"}
+    </td>
     </tr>`;
   }
 
@@ -381,7 +387,7 @@ function displayTxInfo(txid, vtxos) {
   const out = document.getElementById("output");
   let html = `<h2>Transaction Output Info</h2>
     <p><b>TxID:</b> ${escapeHtml(txid)}</p>
-    <table><thead><tr><th>Outpoint</th><th>Amount</th><th>Created (UTC)</th><th>Status</th></tr></thead><tbody>`;
+    <table><thead><tr><th>Outpoint</th><th>Amount</th><th>Created (UTC)</th><th>Status</th><th>Commitment TX</th></tr></thead><tbody>`;
 
   for (const v of vtxos) {
     const amt = BigInt(v.amount || "0");
@@ -402,6 +408,11 @@ function displayTxInfo(txid, vtxos) {
       <td>${formatBigInt(amt)} sats</td>
       <td class="muted">${created}</td>
       <td>${escapeHtml(status)}</td>
+      <td>
+      ${v.commitmentTxids && v.commitmentTxids.length > 0 
+        ? `<a href="https://mempool.space/tx/${escapeHtml(v.commitmentTxids[0])}" target="_blank" rel="noopener noreferrer">${escapeHtml(v.commitmentTxids[0])}</a>` 
+        : "-"}
+    </td>
     </tr>`;
   }
 
@@ -412,4 +423,3 @@ function displayTxInfo(txid, vtxos) {
 </script>
 </body>
 </html>
-
