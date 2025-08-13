@@ -1,6 +1,9 @@
 
-# Arkade Explorer
-**Proto-explorer for Arkade / Fulmine. Currently working with demo wallet riga.arkade.money and node public key 034ae8492184a8ca64cf5299a5eefcb59d1c8e41668e667dfd4d042e5876d34745. This will change.**
+# Arkade Explorer v0.1
+**Proto-explorer for Arkade / Fulmine (for demo purpose). <br>Currently working with demo wallet riga.arkade.money and node public key 034ae8492184a8ca64cf5299a5eefcb59d1c8e41668e667dfd4d042e5876d34745.**
+<br>**This will change.**
+
+Disclaimer:
 <br>Build with LLM.
 <br>Working but not yet reviewed.
 <br>An example at https://resources.davidcoen.it/arkexplorer/
@@ -8,11 +11,11 @@
 
 ## Overview
 
-Arkade Explorer is a web-based tool that allows users to explore and query Arkade addresses (not yet implemented), scripts, and transaction IDs. It provides detailed information about vTXOs and enables users to group and filter results.
+Arkade Explorer is a web-based tool that allows users to explore and query Arkade addresses, scripts, and transaction IDs. It provides detailed information about vTXOs and enables users to group and filter results.
 
 ## Features
 
-- **Address, Script, and Transaction Search**: Users can enter an Ark address (not yet implemented), script, or transaction ID to query the Arkd server data.
+- **Address, Script, and Transaction Search**: Users can enter an Ark address, script, or transaction ID to query the Arkd server data.
   
 - **Spendable vTXOs Filter**: Enables filtering of vTXOs to show only those that are spendable.
 
@@ -24,7 +27,7 @@ Arkade Explorer is a web-based tool that allows users to explore and query Arkad
 
 ## Usage
 
-1. **Search**: Enter a transaction ID, script, or Ark address (not yet implemented) in the search box and click "Search".
+1. **Search**: Enter a transaction ID, script, or Ark address in the search box and click "Search".
 
 2. **Filter Options**: 
    - Use the "Only spendable" checkbox to filter the results to show only spendable vTXOs.
