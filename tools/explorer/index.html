@@ -23,16 +23,61 @@
     small.note { color: #666; display: block; margin-top: 6px; }
     .chevron { cursor: pointer; }
     .hidden { display: none; }
+  .description {
+  background: #f9f9fb;
+  padding: 16px;
+  border-radius: 10px;
+  margin-top: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.toggle-more button {
+  background: #2563eb;
+  border: none;
+  color: white;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-top: 10px;
+  padding: 8px 16px;
+}
+
+.toggle-more .hidden {
+  display: none;
+}
+
+.toggle-more ul {
+  margin-top: 10px;
+  color: #333;
+}
+
+.toggle-more ul li {
+  margin-bottom: 6px;
+}
   </style>
 </head>
 <body>
   <header>
     <img src="https://mintlify.s3.us-west-1.amazonaws.com/arkade/logo/light.svg" alt="Arkade Logo" />
     <h1>Explorer</h1>
-  </header>
-<h2>Arkade Explorer is a web-based tool that allows users to explore and query Arkade addresses (not yet implemented), scripts, and transaction IDs. <br>It provides detailed information about vTXOs and enables users to group and filter results.</h2>
-
-<h3>Github Repo: <a href="https://github.com/theDavidCoen/Arktools/tree/main/tools/explorer" target="_blank">https://github.com/theDavidCoen/Arktools/tree/main/tools/explorer</a></h3>
+  </header>  
+  <div class="description">
+  <h2>About Arkade Explorer</h2>
+  <p>Arkade Explorer is a web-based tool that allows users to explore and query Arkade addresses, scripts, and transaction IDs. It's built with the help of LLMs and is currently using the demo wallet <b>riga.arkade.money</b> and the demo arkd server public key: <b>034ae8492184a8ca64cf5299a5eefcb59d1c8e41668e667dfd4d042e5876d34745</b>.</p>
+  
+<h3>Features & Capabilities</h3>
+      <ul>
+        <li><b>Advanced Search Tools:</b> Effortlessly enter addresses, scripts, or transaction IDs for detailed querying functionalities.</li>
+        <li><b>Dynamic Filtering Options:</b> Toggle between displaying spendable vTXOs or organizing results by unique commitments for a tailored view.</li>
+        <li><b>Streamlined Interface:</b> Utilize collapsible views that allow you to expand or collapse groups, maintaining a tidy workspace.</li>
+        <li><b>Integrated External Links:</b> Seamlessly link to detailed transaction views on external platforms such as mempool.space for enriched insights.</li>
+      </ul>
+      <p><b>Project Overview:</b> As an open-source project, Arkade Explorer invites collaboration and creativity. While it's in a non-final version, the tool aims to offer a playful yet insightful exploration of Arkade data. Contributions and feedback are warmly welcomed to help shape its evolution.</p>
+      <p><b>Usage Note:</b> Please remember that this tool is for demonstration purposes and might contain developmental quirks.
+<br><b>Github Repo:</b> <a href="https://github.com/theDavidCoen/Arktools/tree/main/tools/explorer" target="_blank">https://github.com/theDavidCoen/Arktools/tree/main/tools/explorer</a>
+</p>
+  </div>
+<br>
   <input id="search" placeholder="Enter txid (64 hex), script (5120...), or Ark address (ark1...)" />
   <button onclick="explore()">Search</button>
   <label><input type="checkbox" id="spendableOnly" checked onchange="refreshBalance()"> Only spendable</label>
@@ -45,6 +90,11 @@ const VTXOS_ENDPOINT = NODE_BASE + "/v1/vtxos";
 const SERVER_PUBKEY = "034ae8492184a8ca64cf5299a5eefcb59d1c8e41668e667dfd4d042e5876d34745";
 
 const CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+
+function toggleDescription() {
+  const moreDesc = document.getElementById("moreDescription");
+  moreDesc.classList.toggle("hidden");
+}
 function fromWords(words) {
   let acc = 0, bits = 0;
   const result = [];
