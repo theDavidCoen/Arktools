@@ -112,10 +112,51 @@ function arkToScriptHex(addr) {
   try {
     const { data } = bech32mDecode(addr);
     const full = fromWords(data);
-    const taprootKey = full.slice(33);
+
+    // Based on conversion tool logic
+    const decoded = full.slice(0, 65); // Slice out the correct length for decoded
+    if (decoded.length !== 65) {
+      throw new Error("Invalid Ark address: incorrect length.");
+    }
+
+    const taprootKey = decoded.slice(33); // Slice out the precise taproot key
     return "5120" + toHex(taprootKey);
-  } catch (e) { return null; }
+  } catch (e) {
+    console.error("Conversion error:", e);
+    return null;
+  }
 }
+
+function isTxid(s) { return /^[0-9a-f]{64}$/i.test(s); }
+function isScriptHex(s) { return /^5120[0-9a-f]{64}$/i.test(s); }
+function isArkAddr(s) { return /^ark1[0-9a-z]{10,}$/i.test(s); }
+
+async function explore() {
+  const q = document.getElementById("search").value.trim();
+  const out = document.getElementById("output");
+  out.style.display = "block";
+  out.innerHTML = `<p class="loading">Querying node…</p>`;
+
+  try {
+    if (isArkAddr(q)) {
+      const script = arkToScriptHex(q);
+      if (!script) throw new Error("Could not convert Ark address to script.");
+      currentScriptHex = script;
+      await fetchScriptData(script);
+    } else if (isScriptHex(q)) {
+      currentScriptHex = q;
+      await fetchScriptData(q);
+    } else if (isTxid(q)) {
+      currentScriptHex = null;
+      await fetchTxData(q);
+    } else {
+      out.innerHTML = `<p>Input not recognized as txid, script (5120...), or ark address. Got: <code>${escapeHtml(q)}</code></p>`;
+    }
+  } catch (e) {
+    out.innerHTML = `<p style="color:#b00">Error: ${escapeHtml(e.message || e)}</p>`;
+  }
+}
+
 function scriptToArk(scriptHex) {
   try {
     if (!scriptHex.startsWith("5120")) return null;
