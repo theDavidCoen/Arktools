@@ -78,17 +78,76 @@
 </p>
   </div>
 <br>
+<div class="toggle-more">
+    <button onclick="toggleDescription()">Customize node parameters</button>
+    <div id="moreDescription" class="hidden">
+           <ul>
+        <li><b>Node base URL:</b> <input id="nodeBase" placeholder="Enter NODE_BASE"/></li>
+        <li><b>Server Public Key:</b> <input id="serverPubKey" placeholder="Enter SERVER_PUBKEY"/></li>
+        <li><b>VTXO Endpoint:</b> <input id="vtxosEndpoint" placeholder="Enter VTXOS_ENDPOINT"/></li>
+    <button id="confirmButton">Confirm Custom Variables</button>
+    <button id="resetButton">Reset to Default</button>
+    </div>
+  </div>
+</div>
+
   <input id="search" placeholder="Enter txid (64 hex), script (5120...), or Ark address (ark1...)" />
   <button onclick="explore()">Search</button>
   <label><input type="checkbox" id="spendableOnly" checked onchange="refreshBalance()"> Only spendable</label>
   <label><input type="checkbox" id="groupByCommitment" onchange="refreshBalance()"> Group by commitment transaction</label>
+  
   <div class="result" id="output" style="display:none"></div>
 
 <script>
-const NODE_BASE = "https://bitcoin-beta.arkade.sh";
-const VTXOS_ENDPOINT = NODE_BASE + "/v1/vtxos";
-const SERVER_PUBKEY = "034ae8492184a8ca64cf5299a5eefcb59d1c8e41668e667dfd4d042e5876d34745";
+// Define variables outside the function to make them accessible globally
+      let NODE_BASE, VTXOS_ENDPOINT, SERVER_PUBKEY;
 
+      document.addEventListener('DOMContentLoaded', function () {
+          const DEFAULT_NODE_BASE = "https://bitcoin-beta.arkade.sh";
+          const DEFAULT_SERVER_PUBKEY = "034ae8492184a8ca64cf5299a5eefcb59d1c8e41668e667dfd4d042e5876d34745";
+
+          const nodeBaseInput = document.getElementById('nodeBase');
+          const serverPubKeyInput = document.getElementById('serverPubKey');
+          const vtxosEndpointInput = document.getElementById('vtxosEndpoint');
+          const confirmButton = document.getElementById('confirmButton');
+          const resetButton = document.getElementById('resetButton');
+          const searchButton = document.getElementById('searchButton');
+
+          function updateVariables() {
+              // Update values based on user input or fallback to default values
+              NODE_BASE = nodeBaseInput.value.trim() || DEFAULT_NODE_BASE;
+              SERVER_PUBKEY = serverPubKeyInput.value.trim() || DEFAULT_SERVER_PUBKEY;
+              VTXOS_ENDPOINT = vtxosEndpointInput.value.trim() || `${NODE_BASE}/v1/vtxos`;
+
+              // Log the values for verification
+              console.log('Using NODE_BASE:', NODE_BASE);
+              console.log('Using SERVER_PUBKEY:', SERVER_PUBKEY);
+              console.log('Using VTXOS_ENDPOINT:', VTXOS_ENDPOINT);
+          }
+
+          confirmButton.addEventListener('click', function() {
+              // Update the variables based on the current inputs
+              updateVariables();
+              alert('Custom variables confirmed');
+          });
+
+          resetButton.addEventListener('click', function() {
+              // Reset inputs to default values
+              nodeBaseInput.value = DEFAULT_NODE_BASE;
+              serverPubKeyInput.value = DEFAULT_SERVER_PUBKEY;
+              vtxosEndpointInput.value = `${DEFAULT_NODE_BASE}/v1/vtxos`;
+              updateVariables();
+              alert('Variables reset to default');
+          });
+
+          searchButton.addEventListener('click', function() {
+              // Ensure the latest input or confirmed values are used in search
+              updateVariables();
+
+              // Perform your search logic here using the updated values
+              // Example: fetch(VTXOS_ENDPOINT).then(...);
+          });
+      });
 const CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
 
 function toggleDescription() {
